@@ -40,135 +40,9 @@ Any config file prefixed with `[AT]` (e.g., `[AT] default.json`) saved in the ga
 
 ---
 
-## Developer API Reference
+## Documentation
 
-The library file is located at [Library_Reimagined.lua](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/Library_Reimagined.lua).
-
-### Library Initialization
-
-```lua
-local Ady_Lib = loadstring(game:HttpGet('https://raw.githubusercontent.com/MrSecret-Official/Adytum_Library_Reimagined_Before_Release_Test/refs/heads/main/Loader.lua'))()
-```
-
-### Library methods
-
-#### `Library:Window(data)`
-Creates the main user interface window.
-- `data.Logo` (string): The asset ID for the side-panel logo.
-- `data.Title` (string): The title text of the window.
-- `data.DevName` (string): The developer's name, used to build the folder structure.
-- `data.TitlePosition` (string): Initial position of the title: `"Topbar"`, `"Logo"`, or `"None"`.
-- `data.FadeTime` (number): Fade animation speed in seconds.
-- `data.MinSize` (Vector2, optional): Minimum size boundaries for resizing.
-- `data.MaxSize` (Vector2, optional): Maximum size boundaries for resizing.
-- `data.AllowConfigExport` (boolean, optional): Hides or shows the configuration copy/paste box options.
-- `data.Credits` (table, optional): A list of credits entries formatted as `{ { Name = "name", Role = "role" } }`.
-
-#### `Library:RegisterThemePreset(name, colorTable)`
-Registers a custom theme preset that users can select in settings.
-- `name` (string): Unique identifier for the preset.
-- `colorTable` (table): 12-key theme mapping. Refer to the table below for keys.
-
-| Theme Key | Type | Description |
-|---|---|---|
-| `Background` | Color3 | Main background color of the window frame |
-| `Border` | Color3 | Inner border border outline color |
-| `Inline` | Color3 | Background color for sections and container boxes |
-| `Hovered Element` | Color3 | Highlight color when mouse is hovering interactive elements |
-| `Page Background` | Color3 | Color of the content page areas |
-| `Outline` | Color3 | Outlines of sections and input boxes |
-| `Element` | Color3 | Default color of unselected toggles, textboxes, and sliders |
-| `Gradient` | Color3 | Secondary color used in interactive gradients |
-| `Text` | Color3 | Color of general label and button texts |
-| `Text Stroke` | Color3 | Shadow/stroke offset color for texts |
-| `Placeholder Text` | Color3 | Text color for placeholder and description labels |
-| `Accent` | Color3 | Core active element fill color (e.g., active toggles, slider fills) |
-
-#### `Library:SetThemePreset(name)`
-Applies a registered theme preset by its name.
-
-#### `Library:OpenConfigBox(title, mode, presetText, callback)`
-Opens the modal overlay for copying or pasting configs.
-- `title` (string): Title of the popup window.
-- `mode` (string): `"Export"` (read-only textbox + Copy button) or `"Import"` (editable textbox + Import button).
-- `presetText` (string): Pre-filled text inside the textbox (for Export).
-- `callback` (function): Triggers when clicking Import, passing the pasted string.
-
----
-
-## Component API Reference
-
-### Page and SubPages
-
-#### `Window:Page(data)`
-Creates a new sidebar tab.
-- `data.Name` (string): Name of the page tab.
-- `data.SubPages` (boolean, optional): Set to `true` if you plan to nest subpages inside this page.
-
-#### `Page:SubPage(data)`
-Creates a subpage container nested inside a page.
-- `data.Name` (string): Name of the subpage tab.
-- `data.Columns` (number): Number of vertical layout columns (1 or 2).
-
-### Sections
-
-#### `Page:Section(data)` / `SubPage:Section(data)`
-Creates a container box inside a page or subpage.
-- `data.Name` (string): Header title of the section.
-- `data.Side` (number): 1 (left column) or 2 (right column).
-
-### Input Elements
-
-#### `Section:Toggle(data)`
-Creates a binary switch.
-- `data.Name` (string): Label of the toggle.
-- `data.Flag` (string): Config flag key.
-- `data.Default` (boolean): Default checked state.
-- `data.Callback` (function): Returns `true` or `false` on change.
-
-#### `Toggle:Colorpicker(data)`
-Attaches a colorpicker to a toggle.
-- `data.Flag` (string): Config flag key.
-- `data.Default` (Color3): Default color.
-- `data.Alpha` (number): Default transparency level (0 to 1).
-- `data.Callback` (function): Returns `Color3` color.
-
-#### `Toggle:Keybind(data)`
-Attaches a keybind controller to a toggle.
-- `data.Flag` (string): Config flag key.
-- `data.Default` (Enum.KeyCode): Default key.
-- `data.Mode` (string): `"Toggle"` or `"Hold"`.
-- `data.Callback` (function): Returns key activation state.
-
-#### `Section:Slider(data)`
-Creates a numeric draggable slider bar.
-- `data.Name` (string): Slider label.
-- `data.Flag` (string): Config flag key.
-- `data.Min` (number): Minimum value.
-- `data.Max` (number): Maximum value.
-- `data.Default` (number): Default value.
-- `data.Decimals` (number): Decimal precision (e.g., 1, 0.1, 0.01).
-- `data.Suffix` (string): Label suffix (e.g., `"%"`).
-- `data.Callback` (function): Returns selected value.
-
-#### `Section:Dropdown(data)`
-Creates a list selection dropdown menu.
-- `data.Name` (string): Dropdown label.
-- `data.Flag` (string): Config flag key.
-- `data.Items` (table): Array of selectable string values.
-- `data.Default` (string): Default selected item.
-- `data.Multi` (boolean): Enables multi-item selection.
-- `data.Callback` (function): Returns selected string.
-
-#### `Section:Textbox(data)`
-Creates a text input field.
-- `data.Name` (string): Textbox label.
-- `data.Flag` (string): Config flag key.
-- `data.Default` (string): Default text.
-- `data.Placeholder` (string): Background text when empty.
-- `data.Numeric` (boolean): Restricts input to numbers.
-- `data.Finished` (boolean): Triggers callback only when focus is lost or Enter is pressed.
-- `data.Callback` (function): Returns typed string.
+For a complete breakdown of all API parameters, design structures, custom layout configurations, and helper methods, please refer directly to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
 
 ---
 
@@ -335,3 +209,9 @@ SubSection:Toggle({
 
 Ady_Lib:Notification("Loaded", "Test script finished loading.", 5)
 ```
+
+---
+
+## Detailed Documentation
+
+For a complete breakdown of all API parameters, design structures, custom layout configurations, and helper methods, refer to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
