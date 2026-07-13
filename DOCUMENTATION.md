@@ -31,8 +31,8 @@ Creates and launches the main graphical interface frame. The **Settings** tab (h
 
 ```lua
 local Window = Ady_Lib:Window({
-    Title = "Blox Hub",
-    DevName = "rubem",
+    Title = "Test Hub",
+    DevName = "DevUser1289",
     Logo = "77218680285262",
     FadeTime = 0.4,
     TitlePosition = "Topbar",
