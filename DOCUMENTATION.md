@@ -10,7 +10,7 @@ This guide provides a comprehensive technical reference for the Adytum Reimagine
 Load and run the library within your executor environment using the loader URL:
 
 ```lua
-local Ady_Lib = loadstring(game:HttpGet('https://raw.githubusercontent.com/MrSecret-Official/Adytum_Library_Reimagined_Before_Release_Test/refs/heads/main/Loader.lua'))()
+local Ady_Lib = loadstring(game:HttpGet('https://raw.githubusercontent.com/MrSecret-Official/Adytum_Library_Reimagined/refs/heads/main/Loader.lua'))()
 ```
 
 ### Automatic File Operations
@@ -51,14 +51,14 @@ Creates and launches the main graphical interface frame. The **Settings** tab (h
 
 ```lua
 local Window = Ady_Lib:Window({
-    Title = "Blox Hub",
-    DevName = "MrSecret",
+    Title = "Blox Hub 2",
+    DevName = "Jhon",
     Logo = "77218680285262",
     FadeTime = 0.4,
     TitlePosition = "Topbar",
     AllowConfigExport = true,
     Credits = {
-        { Name = "MrSecret", Role = "Lead Developer" }
+        { Name = "Zack", Role = "Lead Developer" }
     },
     MinSize = Vector2.new(500, 350),
     MaxSize = Vector2.new(1000, 700)
