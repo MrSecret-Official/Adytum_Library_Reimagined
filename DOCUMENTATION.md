@@ -22,6 +22,26 @@ When a window is created, the library automatically builds a structured director
 4. **Game Directory**: `Adytum_libraryfolder/Ady...{Title}_by...{DevName}/Ady...{GameName}_ID{PlaceId}`. Isolates settings per game.
 5. **Config Directory**: `Adytum_libraryfolder/Ady...{Title}_by...{DevName}/Ady...{GameName}_ID{PlaceId}/Configs`. Houses all serialized JSON config files.
 
+### Multi-Instance Safety
+To prevent duplicate windows and memory leaks when restarting scripts during development, the library includes built-in multi-instance safety. If a script with the same `DevName` and `Title` is executed again in the same game, the library automatically unloads the previous GUI session (disconnecting connections, closing threads, and cleaning up UI elements) before loading the new window.
+
+### Global GUI Operations
+
+#### `Library:Unload()`
+Completely unloads the library GUI. This removes the interface, disconnects all internal event connections (such as input handlers), stops running threads, and restores the default mouse icon behavior.
+```lua
+Library:Unload()
+```
+
+#### `Library:Notification(title, description, duration)`
+Triggers a slide-in alert notification box at the bottom-right of the screen.
+```lua
+Library:Notification("Alert", "Something happened!", 3)
+```
+- `title` (string): Header text of the notification banner.
+- `description` (string): Informative body text describing the event.
+- `duration` (number): Lifespan of the notification in seconds before it fades out.
+
 ---
 
 ## Window Initialization
@@ -31,8 +51,8 @@ Creates and launches the main graphical interface frame. The **Settings** tab (h
 
 ```lua
 local Window = Ady_Lib:Window({
-    Title = "Test Hub",
-    DevName = "DevUser1289",
+    Title = "Blox Hub",
+    DevName = "rubem",
     Logo = "77218680285262",
     FadeTime = 0.4,
     TitlePosition = "Topbar",
@@ -75,6 +95,40 @@ On initialization, the library checks the game's configs directory for files sta
 Invoking `Library:OpenConfigBox(title, mode, presetText, callback)` overlays a central textbox modal:
 - **Export Mode**: Displays the JSON configuration string in a read-only multi-line textbox, offering a Copy button (supporting `setclipboard`).
 - **Import Mode**: Provides an empty input field for pasting JSON payloads and triggers the callback parameter upon clicking Import.
+
+### HUD Overlay Widgets (Watermark & Keybind List)
+Two auxiliary HUD overlay panels are initialized automatically when a window is created and are accessible via the returned window object:
+
+#### `Window.Watermark`
+A draggable on-screen display panel that shows real-time stats including the hub's name, active frame rate (FPS), and network latency (Ping).
+- **Set Visibility**:
+  ```lua
+  Window.Watermark:SetVisibility(true) -- Shows the watermark
+  Window.Watermark:SetVisibility(false) -- Hides the watermark
+  ```
+
+#### `Window.KeybindList`
+A draggable on-screen overlay list displaying the currently active keybind components, their trigger keys, and activation modes (e.g., "Toggle", "Hold").
+- **Set Visibility**:
+  ```lua
+  Window.KeybindList:SetVisibility(true) -- Shows the keybind list
+  Window.KeybindList:SetVisibility(false) -- Hides the keybind list
+  ```
+
+---
+
+## GUI Customization
+
+### Corner Radius Adjustment
+The interface supports custom corner roundedness values for various components. You can adjust these values dynamically.
+```lua
+Library:SetCornerRadius(type, value)
+```
+- `type` (string): The category of element corners to adjust:
+  - `"Window"`: Main GUI window background container corners (default: 6px).
+  - `"Boxes"`: Section content boxes and background containers (default: 3px).
+  - `"Sliders"`: Slider track indicator boxes (default: 0px).
+- `value` (number): Corner radius size in pixels (clamped between the category's default minimum and 32 pixels).
 
 ---
 
@@ -207,6 +261,36 @@ CombatSection:Textbox({
 })
 ```
 
+#### `Section:Searchbox(data)`
+A listbox selection menu equipped with an integrated search text field at the top. It allows users to filter list items dynamically by typing.
+```lua
+local SearchMenu = CombatSection:Searchbox({
+    Name = "Target Selection",
+    Flag = "SearchMenu",
+    Items = { "Alice", "Bob", "Charlie", "David" },
+    Default = "Alice",
+    Multi = false,
+    Callback = function(Selection)
+        print("Selected item:", Selection)
+    end
+})
+```
+##### Parameters:
+- `Name` (string): Title text shown at the top of the search widget.
+- `Flag` (string): Flag identifier for config persistence.
+- `Items` (table): Table of string options.
+- `Default` (string/table): Default option value (or table of values if `Multi` is enabled).
+- `Multi` (boolean): Allows selecting multiple items simultaneously.
+- `Callback` (function): Triggered when selections change, returning the active value(s).
+
+##### Methods on Returned Searchbox Object:
+- **`:Get()`**: Returns the current value (a string, or table of strings if multi-select is enabled).
+- **`:Set(value)`**: Programmatically sets the active selection (string or list of strings).
+- **`:Add(option)`**: Dynamically appends a new string option to the selection list.
+- **`:Remove(option)`**: Removes a string option from the selection list.
+- **`:Refresh(list)`**: Replaces all existing list options with a new table of strings.
+- **`:SetVisibility(bool)`**: Toggles whether the searchbox container is visible.
+
 #### `Section:Label(text)`
 Renders basic text information inside a section.
 ```lua
@@ -220,6 +304,17 @@ local InfoLabel = CombatSection:Label("Usage notes: Excessive ranges may cause d
       Mode = "Toggle",
       Callback = function(Value)
           print("Label keybind activated:", Value)
+      end
+  })
+  ```
+- **`Label:Colorpicker(data)`**: Attaches an inline colorpicker next to the label.
+  ```lua
+  InfoLabel:Colorpicker({
+      Flag = "LabelColorpicker",
+      Default = Color3.fromRGB(0, 255, 0),
+      Alpha = 0,
+      Callback = function(Color, Alpha)
+          print("Label color chosen:", Color)
       end
   })
   ```
@@ -258,6 +353,40 @@ When styling the UI, the theme map requires configuring these twelve exact keys:
 | `Text Stroke` | Color3 | Shadow/stroke offset color for texts |
 | `Placeholder Text` | Color3 | Text color for placeholder and description labels |
 | `Accent` | Color3 | Core active element fill color (e.g., active toggles, slider fills) |
+
+### Theme Management & Preset Configurations
+Developers can configure the theme preset system, limit layout options, and programmatically adjust color themes.
+
+#### Global Control Flags
+Modify these boolean parameters on the global `Library` object before initializing any windows to customize what options are available to the user in the Settings panel:
+```lua
+Library.AllowThemePresets = true   -- Set to false to hide preset theme dropdown menus
+Library.AllowAdvancedTheming = true -- Set to false to hide advanced theme import/export / saving panels
+Library.AllowConfigExport = true    -- Set to false to hide config import/export panels
+```
+
+#### Developer Preset Registration & Control
+You can register and apply custom color scheme presets programmatically:
+- **`Library:RegisterThemePreset(name, colorTable)`**: Registers a custom color preset. The `colorTable` should be a dictionary mapping the custom theme keys to `Color3` values.
+- **`Library:SetThemePreset(name)`**: Instantly applies a registered preset theme by name.
+```lua
+Library:RegisterThemePreset("Forest", {
+    ["Background"] = Color3.fromRGB(15, 25, 20),
+    ["Border"] = Color3.fromRGB(30, 45, 35),
+    ["Inline"] = Color3.fromRGB(20, 32, 25),
+    ["Hovered Element"] = Color3.fromRGB(35, 55, 40),
+    ["Page Background"] = Color3.fromRGB(20, 30, 25),
+    ["Outline"] = Color3.fromRGB(45, 65, 50),
+    ["Element"] = Color3.fromRGB(25, 40, 30),
+    ["Gradient"] = Color3.fromRGB(35, 55, 40),
+    ["Text"] = Color3.fromRGB(220, 240, 225),
+    ["Text Stroke"] = Color3.fromRGB(10, 15, 12),
+    ["Placeholder Text"] = Color3.fromRGB(130, 160, 140),
+    ["Accent"] = Color3.fromRGB(46, 179, 102)
+})
+
+Library:SetThemePreset("Forest")
+```
 
 ---
 
