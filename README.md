@@ -25,7 +25,7 @@ When creating a window, the library automatically organizes files to prevent clu
 - Game Config Directory: `Adytum_libraryfolder/Ady...{Title}_by...{DevName}/Ady...{GameName}_ID{PlaceId}/Configs`
 - Hub Asset Directory: `Adytum_libraryfolder/Ady...{Title}_by...{DevName}/Assets`
 
-### Theme Presets
+### Theme Presets and Advanced Customization
 Three theme presets are registered by default:
 - Default: The library's ocean dark theme.
 - Midnight: A deep violet theme.
@@ -34,7 +34,7 @@ Three theme presets are registered by default:
 
 Check Default Preset Themes here -> https://github.com/MrSecret-Official/Adytum_Library_Reimagined/tree/main/Github_assets/Themes
 
-Users can switch presets via the Preset dropdown inside Settings -> Theming, and developers can register custom presets.
+Users can switch presets via the Preset dropdown inside Settings -> Theming, and developers can register custom presets. The library also features options to completely toggle presets, advanced theming panels, and export/import tools.
 
 ### Clipboard Config Export and Import
 Settings configs and themes can be exported or imported via a clipboard-based pop-up box. When exporting, the JSON payload is rendered inside a textbox with a Copy action (supporting `setclipboard`). When importing, a textbox is provided to paste the JSON, parsing and applying the config live.
@@ -42,11 +42,29 @@ Settings configs and themes can be exported or imported via a clipboard-based po
 ### Autoload System
 Any config file prefixed with `[AT]` (e.g., `[AT] default.json`) saved in the game's configs folder is automatically loaded on startup, restoring the user's preferred settings and theme.
 
+### Interactive Searchbox Element
+Easily filter through long option lists with a responsive search input element. The list updates dynamically as the user types, making option selection quick and intuitive.
+
+### Customizable Corner Roundedness
+Adjust the corner radius of the main GUI window, section boxes, and sliders dynamically to match your desired visual aesthetic.
+
+### On-Screen HUD Widgets (Watermark & Keybind List)
+Track active keybind states and display real-time FPS and Ping counters on-screen with custom movable overlay widgets that can be configured or toggled by the user.
+
+### Inline Interactive Labels
+Attach colorpickers or keybinds directly to information labels to build compact, efficient GUI layouts.
+
+### Global Toast Notifications
+Display styled slide-in alert notifications with custom titles, descriptions, and durations.
+
+### Multi-Instance Safety
+Automatically replaces and cleans up any existing GUI instance running with the same DevName and Title when the script is re-executed, preventing duplicate windows and saving system memory.
+
 ---
 
 ## Documentation
 
-For a complete breakdown of all API parameters, design structures, custom layout configurations, and helper methods, please refer directly to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
+For a complete breakdown of all GUI parameters, layout configurations, custom elements, and helper methods, please refer directly to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
 
 ---
 
@@ -218,4 +236,4 @@ Ady_Lib:Notification("Loaded", "Test script finished loading.", 5)
 
 ## Detailed Documentation
 
-For a complete breakdown of all API parameters, design structures, custom layout configurations, and helper methods, refer to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
+For a complete breakdown of all GUI parameters, design structures, custom layout configurations, and helper methods, refer to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
