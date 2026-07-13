@@ -4,15 +4,11 @@ Adytum Reimagined is a feature-rich, high-performance UI library designed for sc
 
 ---
 
-## Media and Demonstration
+## Media
 
-Insert your demonstration images or videos below:
+Reimagined GUI:
 
 ![Main UI Demonstration](https://github.com/MrSecret-Official/Adytum_Library_Reimagined/blob/main/Github_assets/Library.png)
-
-```
-[Insert Video Demo Link or Embed Here]
-```
 
 ---
 
