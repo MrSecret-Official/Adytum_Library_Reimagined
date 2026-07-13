@@ -30,6 +30,9 @@ Three theme presets are registered by default:
 - Default: The library's ocean dark theme.
 - Midnight: A deep violet theme.
 - Ember: A warm orange/red theme.
+- More...
+
+![Check Default Preset Themes here.](https://github.com/MrSecret-Official/Adytum_Library_Reimagined/tree/main/Github_assets/Themes)
 Users can switch presets via the Preset dropdown inside Settings -> Theming, and developers can register custom presets.
 
 ### Clipboard Config Export and Import
