@@ -95,13 +95,13 @@ local Ady_Lib = loadstring(game:HttpGet('https://raw.githubusercontent.com/MrSec
 -- unbounded maximum, same as before. Uncomment below to set custom limits.
 local Window = Ady_Lib:Window({
     Title = "Blox Hub",
-    DevName = "rubem",
+    DevName = "mrsecret",
     Logo = "77218680285262",
     FadeTime = 0.4,
     TitlePosition = "Topbar",
     AllowConfigExport = true,
     Credits = {
-        { Name = "rubem", Role = "Developer" }
+        { Name = "mrsecret", Role = "Developer" }
     }
     -- MinSize = Vector2.new(500, 350),
     -- MaxSize = Vector2.new(1000, 700),
