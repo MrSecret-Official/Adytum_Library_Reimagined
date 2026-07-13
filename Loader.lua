@@ -1144,6 +1144,61 @@ local Library do
         return BoxHandle
     end
 
+    -- [Feature: Config Export/Import] Persistent export/import container.
+    -- Unlike Library.BuildInlineConfigBox (a show/hide box that pops in and
+    -- out like a dropdown), this is always visible and meant to be dropped
+    -- straight into its own Section, so it sits in the Configs subpage the
+    -- same permanent way the config list/buttons Section does.
+    Library.BuildExportImportBox = function(self, Parent)
+        local InputBackground = Instances:Create("Frame", {
+            Parent = Parent,
+            Name = "\0",
+            Size = UDim2New(1, 0, 0, 140),
+            BorderSizePixel = 2,
+            BorderColor3 = FromRGB(12, 12, 12),
+            BackgroundColor3 = FromRGB(12, 22, 36)
+        })  InputBackground:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Outline"})
+        InputBackground:Border("Border")
+
+        local InputCorner = InstanceNew("UICorner")
+        InputCorner.Name = "\0"
+        InputCorner.CornerRadius = UDimNew(0, 4)
+        InputCorner.Parent = InputBackground.Instance
+
+        local InputBox = Instances:Create("TextBox", {
+            Parent = InputBackground.Instance,
+            Name = "\0",
+            FontFace = Font.fromEnum(Enum.Font.Code), -- monospace: aligns JSON quotes/braces, easier to read
+            Text = "",
+            PlaceholderText = "Paste a config here to import, or press Export to fill this with your current config...",
+            MultiLine = true,
+            ClearTextOnFocus = false,
+            TextEditable = true,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            TextColor3 = FromRGB(222, 236, 248),
+            PlaceholderColor3 = FromRGB(138, 160, 184),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Position = UDim2New(0, 8, 0, 6),
+            Size = UDim2New(1, -16, 1, -12),
+            TextSize = 13
+        })  InputBox:AddToTheme({TextColor3 = "Text"})
+
+        local BoxHandle = { Instance = InputBackground }
+
+        function BoxHandle:GetText()
+            return InputBox.Instance.Text
+        end
+
+        function BoxHandle:SetText(Text)
+            InputBox.Instance.Text = Text or ""
+        end
+
+        return BoxHandle
+    end
+
     Library.RefreshConfigsList = function(self, Element)
         local CurrentList = { }
         local List = { }
@@ -1504,10 +1559,19 @@ local Library do
                 })
 
                 if Data.SubPages then
+                    -- SubPagesMode controls how the subpages bar is sized:
+                    --   "Auto" (default) - the bar grows horizontally to fit its
+                    --     buttons, up to the full width of the page, at which
+                    --     point it stops growing and becomes horizontally
+                    --     scrollable instead. Height never changes.
+                    --   "Full" - the bar is always fully expanded (full page
+                    --     width), the previous/legacy behavior.
+                    local SubPagesMode = Data.SubPagesMode or "Auto"
+
                     Items["SubPages"] = Instances:Create("ScrollingFrame", {
                         Parent = Items["Page"].Instance,
                         Name = "\0",
-                        Size = UDim2New(1, 0, 0, 35),
+                        Size = SubPagesMode == "Full" and UDim2New(1, 0, 0, 35) or UDim2New(0, 0, 0, 35),
                         BorderColor3 = FromRGB(42, 49, 45),
                         BorderSizePixel = 2,
                         AutomaticCanvasSize = Enum.AutomaticSize.X,
@@ -1527,7 +1591,7 @@ local Library do
                         PaddingLeft = UDimNew(0, 7)
                     })
 
-                    Instances:Create("UIListLayout", {
+                    local SubPagesListLayout = Instances:Create("UIListLayout", {
                         Parent = Items["SubPages"].Instance,
                         Name = "\0",
                         VerticalAlignment = Enum.VerticalAlignment.Center,
@@ -1535,6 +1599,45 @@ local Library do
                         Padding = UDimNew(0, 12),
                         SortOrder = Enum.SortOrder.LayoutOrder
                     })
+
+                    if SubPagesMode == "Auto" then
+                        -- Only the horizontal size is ever driven automatically
+                        -- here; the bar's height always stays fixed at 35.
+                        --
+                        -- We measure content width off the UIListLayout's own
+                        -- AbsoluteContentSize rather than the ScrollingFrame's
+                        -- CanvasSize/AutomaticCanvasSize. The latter is computed
+                        -- from the former on a later step, so listening to
+                        -- CanvasSize instead can end up one layout pass further
+                        -- behind (and in some cases never catch up before the
+                        -- rest of the script has already added every subpage).
+                        local function UpdateSubPagesBarWidth()
+                            local MaxWidth = Items["Page"].Instance.AbsoluteSize.X
+                            local ContentWidth = SubPagesListLayout.Instance.AbsoluteContentSize.X + 14 -- + left/right UIPadding
+
+                            -- The page frame can briefly report an AbsoluteSize of 0
+                            -- before the engine finishes its first layout pass (or in
+                            -- some executor environments). Falling back to the raw
+                            -- content width in that case avoids the bar collapsing to
+                            -- an invisible 0px sliver instead of just being uncapped
+                            -- for a moment until a real MaxWidth comes through.
+                            local TargetWidth = (MaxWidth > 0) and math.min(ContentWidth, MaxWidth) or ContentWidth
+
+                            Items["SubPages"].Instance.Size = UDim2New(0, TargetWidth, 0, 35)
+                        end
+
+                        -- Exposed so WindowSubPage can force a recompute right after
+                        -- each subpage button is added, instead of relying only on
+                        -- change signals (which can lag a frame behind, or in rare
+                        -- cases not fire before the rest of the calling script has
+                        -- already finished adding subpages).
+                        Items["UpdateSubPagesBarWidth"] = UpdateSubPagesBarWidth
+
+                        Library:Connect(SubPagesListLayout.Instance:GetPropertyChangedSignal("AbsoluteContentSize"), UpdateSubPagesBarWidth)
+                        Library:Connect(Items["Page"].Instance:GetPropertyChangedSignal("AbsoluteSize"), UpdateSubPagesBarWidth)
+
+                        UpdateSubPagesBarWidth()
+                    end
 
                     Items["Columns"] = Instances:Create("Frame", {
                         Parent = Items["Page"].Instance,
@@ -1910,6 +2013,19 @@ local Library do
             end
 
             TableInsert(Data.Page.SubPages, SubPage)
+
+            -- [Fix] In Auto mode the bar's width is normally kept in sync via
+            -- CanvasSize/AbsoluteSize change signals, but those can lag a frame
+            -- behind (or, in some executor environments, not have fired yet by
+            -- the time every subpage has already been added synchronously).
+            -- Forcing an explicit recompute here -- deferred one frame so the
+            -- engine has finished laying out the new button first -- guarantees
+            -- the bar always ends up sized correctly instead of staying stuck
+            -- at its initial (possibly 0px) width.
+            if Data.Page.Items["UpdateSubPagesBarWidth"] then
+                task.defer(Data.Page.Items["UpdateSubPagesBarWidth"])
+            end
+
             return SubPage
         end
 
@@ -6231,6 +6347,10 @@ end)
             Name = Data.Name or Data.name or "Page",
             Columns = Data.Columns or Data.columns or 2,
             SubPages = Data.SubPages or Data.subpages or false,
+            -- "Auto" (default): subpages bar grows to fit its buttons, up to
+            -- the full page width, then scrolls. "Full": bar is always fully
+            -- expanded (legacy behavior).
+            SubPagesMode = Data.SubPagesMode or Data.subpagesmode or "Auto",
         }
 
         Library.SearchItems[Page] = { }
@@ -6242,6 +6362,7 @@ end)
             Parent = Page.Window.Items["Pages"],
             Columns = Page.Columns,
             SubPages = Page.SubPages,
+            SubPagesMode = Page.SubPagesMode,
             FadeTime = Page.Window.FadeTime,
             Window = Page.Window
         })
@@ -6929,30 +7050,48 @@ end)
                     UpdateSelectionDependentButtons()
 
                     Library:RefreshConfigsList(ConfigsSearchbox)
+                end
 
-                    -- [Feature: Config Export] Theme export/import (dev-togglable)
-                    if Library.AllowConfigExport then
-                        local ExportImportButton = ConfigsSection:Button()
-                        local ConfigBox = Library:BuildInlineConfigBox(ConfigsSection.Items["Content"].Instance)
+                -- [Feature: Config Export] Theme export/import (dev-togglable).
+                -- Lives in its own persistent Section (Side 2) instead of a
+                -- show/hide dropdown-style popup, matching the config
+                -- list/buttons Section right next to it.
+                if Library.AllowConfigExport then
+                    local ExportImportSection = ConfigsSubPage:Section({Name = "Export / Import Config", Side = 2}) do
+                        local ConfigBox = Library:BuildExportImportBox(ExportImportSection.Items["Content"].Instance)
 
-                        ExportImportButton:Add("Export Config", function()
-                            local ThemeJson = Library:GetThemeConfig()
-                            ConfigBox:Show("Export Config", "Export", ThemeJson)
+                        local ExportCopyButton = ExportImportSection:Button()
+
+                        ExportCopyButton:Add("Export", function()
+                            ConfigBox:SetText(Library:GetThemeConfig())
+                            Library:Notification("Success", "Current config exported below", 3)
                         end)
-                        ExportImportButton:Add("Import Config", function()
-                            ConfigBox:Show("Import Config", "Import", nil, function(Text)
-                                if Text == nil or Text == "" then
-                                    Library:Notification("Error", "Please paste a config first", 5)
-                                    return
-                                end
 
-                                local Ok, Err = Library:LoadThemeConfig(Text)
-                                if Ok then
-                                    Library:Notification("Success", "Config imported successfully", 5)
-                                else
-                                    Library:Notification("Error", "Import failed: " .. tostring(Err), 5)
-                                end
-                            end)
+                        ExportCopyButton:Add("Copy", function()
+                            if setclipboard then
+                                pcall(setclipboard, ConfigBox:GetText())
+                                Library:Notification("Success", "Config copied to clipboard", 3)
+                            else
+                                Library:Notification("Error", "Your executor doesn't support setclipboard", 3)
+                            end
+                        end)
+
+                        local ImportButton = ExportImportSection:Button()
+
+                        ImportButton:Add("Import", function()
+                            local Text = ConfigBox:GetText()
+
+                            if Text == nil or Text == "" then
+                                Library:Notification("Error", "Please paste a config first", 5)
+                                return
+                            end
+
+                            local Ok, Err = Library:LoadThemeConfig(Text)
+                            if Ok then
+                                Library:Notification("Success", "Config imported successfully", 5)
+                            else
+                                Library:Notification("Error", "Import failed: " .. tostring(Err), 5)
+                            end
                         end)
                     end
                 end
