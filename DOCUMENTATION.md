@@ -52,13 +52,13 @@ Creates and launches the main graphical interface frame. The **Settings** tab (h
 ```lua
 local Window = Ady_Lib:Window({
     Title = "Blox Hub",
-    DevName = "rubem",
+    DevName = "MrSecret",
     Logo = "77218680285262",
     FadeTime = 0.4,
     TitlePosition = "Topbar",
     AllowConfigExport = true,
     Credits = {
-        { Name = "rubem", Role = "Lead Developer" }
+        { Name = "MrSecret", Role = "Lead Developer" }
     },
     MinSize = Vector2.new(500, 350),
     MaxSize = Vector2.new(1000, 700)
