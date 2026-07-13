@@ -1,13 +1,10 @@
-if Library then
-    Library:Unload()
-end
-
 local LoadTick = os.clock()
 
-if getgenv().Adytum_Cleanup then
-    pcall(getgenv().Adytum_Cleanup)
-end
-getgenv().Adytum_Cleanup = nil
+-- [Feature: Multi-instance Safety] Keyed by creator + script title + game, so
+-- reopening the SAME hub's script in the SAME game replaces its own previous
+-- window, while a different hub's script (sharing this same library file)
+-- is left completely alone.
+getgenv().Adytum_Instances = getgenv().Adytum_Instances or { }
 
 local Library do
     local Workspace = game:GetService("Workspace")
@@ -290,6 +287,23 @@ local Library do
     for Index, Value in Library.Folders do 
         if not isfolder(Value) then
             makefolder(Value)
+        end
+    end
+
+    -- [Feature: Theme Presets] Auto-saved preset choice. Selecting a preset in
+    -- the dropdown persists it here immediately (no manual "save"/"create config"
+    -- step needed) and it's restored automatically on the next load.
+    Library.ActivePresetFile = Library.Folders.Directory .. "/ActivePreset.txt"
+
+    Library.SaveActivePreset = function(self, Name)
+        pcall(writefile, self.ActivePresetFile, Name)
+    end
+
+    if isfile(Library.ActivePresetFile) then
+        local Ok, SavedName = pcall(readfile, Library.ActivePresetFile)
+        if Ok and SavedName and Library.ThemePresets[SavedName] then
+            Library.ActivePreset = SavedName
+            Library.Theme = TableClone(Library.ThemePresets[SavedName])
         end
     end
 
@@ -956,54 +970,40 @@ local Library do
         end
     end
 
-    -- [Feature: Config Export/Import] Shared paste/copy box used by the
-    -- "Export Config" / "Import Config" buttons. Mode "Export" pre-fills the
-    -- box with the given text and shows a Copy button; Mode "Import" shows an
-    -- empty placeholder box and an Import button that hands the pasted text
-    -- back to Callback(Text).
-    Library.OpenConfigBox = function(self, Title, Mode, PresetText, Callback)
-        local Overlay = Instances:Create("Frame", {
-            Parent = Library.Holder.Instance,
-            Name = "\0",
-            Size = UDim2New(1, 0, 1, 0),
-            Position = UDim2New(0, 0, 0, 0),
-            BackgroundColor3 = FromRGB(0, 0, 0),
-            BackgroundTransparency = 0.4,
-            BorderSizePixel = 0,
-            ZIndex = 1000
-        })
-
+    -- [Feature: Config Export/Import] Inline paste/copy box used by the
+    -- "Export Config" / "Import Config" buttons in Settings -> Configs.
+    -- Unlike a popup, this is built once as a normal child of the Configs
+    -- section (Parent) and just shows/hides + swaps its own content, so
+    -- there's no separate floating window/interface involved.
+    Library.BuildInlineConfigBox = function(self, Parent)
         local Box = Instances:Create("Frame", {
-            Parent = Overlay.Instance,
+            Parent = Parent,
             Name = "\0",
-            AnchorPoint = Vector2New(0.5, 0.5),
-            Position = UDim2New(0.5, 0, 0.5, 0),
-            Size = UDim2New(0, 360, 0, 260),
+            Size = UDim2New(1, 0, 0, 210),
             BorderSizePixel = 2,
             BorderColor3 = FromRGB(12, 12, 12),
             BackgroundColor3 = FromRGB(6, 12, 20),
-            ZIndex = 1001
+            Visible = false
         })  Box:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
         Box:Border("Border")
 
         local BoxCorner = InstanceNew("UICorner")
         BoxCorner.Name = "\0"
-        BoxCorner.CornerRadius = UDimNew(0, 6)
+        BoxCorner.CornerRadius = UDimNew(0, 4)
         BoxCorner.Parent = Box.Instance
 
         local TitleLabel = Instances:Create("TextLabel", {
             Parent = Box.Instance,
             Name = "\0",
             FontFace = Library.Font,
-            Text = Title,
+            Text = "",
             TextColor3 = FromRGB(222, 236, 248),
             TextXAlignment = Enum.TextXAlignment.Left,
-            Position = UDim2New(0, 12, 0, 10),
-            Size = UDim2New(1, -24, 0, 18),
+            Position = UDim2New(0, 10, 0, 8),
+            Size = UDim2New(1, -40, 0, 16),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            TextSize = 13,
-            ZIndex = 1002
+            TextSize = 13
         })  TitleLabel:AddToTheme({TextColor3 = "Text"})
         TitleLabel:TextBorder()
 
@@ -1015,34 +1015,37 @@ local Library do
             AutoButtonColor = false,
             TextColor3 = FromRGB(138, 160, 184),
             AnchorPoint = Vector2New(1, 0),
-            Position = UDim2New(1, -8, 0, 8),
-            Size = UDim2New(0, 22, 0, 22),
+            Position = UDim2New(1, -6, 0, 6),
+            Size = UDim2New(0, 20, 0, 20),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            TextSize = 14,
-            ZIndex = 1002
+            TextSize = 13
         })  CloseButton:AddToTheme({TextColor3 = "Placeholder Text"})
 
         local InputBackground = Instances:Create("Frame", {
             Parent = Box.Instance,
             Name = "\0",
-            Position = UDim2New(0, 12, 0, 36),
-            Size = UDim2New(1, -24, 1, -84),
+            Position = UDim2New(0, 10, 0, 30),
+            Size = UDim2New(1, -20, 1, -76),
             BorderSizePixel = 2,
             BorderColor3 = FromRGB(12, 12, 12),
-            BackgroundColor3 = FromRGB(12, 22, 36),
-            ZIndex = 1002
+            BackgroundColor3 = FromRGB(12, 22, 36)
         })  InputBackground:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Outline"})
+
+        local InputCorner = InstanceNew("UICorner")
+        InputCorner.Name = "\0"
+        InputCorner.CornerRadius = UDimNew(0, 4)
+        InputCorner.Parent = InputBackground.Instance
 
         local InputBox = Instances:Create("TextBox", {
             Parent = InputBackground.Instance,
             Name = "\0",
-            FontFace = Library.Font,
-            Text = PresetText or "",
-            PlaceholderText = Mode == "Import" and "Paste your config here..." or "",
+            FontFace = Font.fromEnum(Enum.Font.Code), -- monospace: aligns JSON quotes/braces, easier to read
+            Text = "",
+            PlaceholderText = "",
             MultiLine = true,
             ClearTextOnFocus = false,
-            TextEditable = Mode == "Import",
+            TextEditable = false,
             TextWrapped = true,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Top,
@@ -1052,8 +1055,7 @@ local Library do
             BorderSizePixel = 0,
             Position = UDim2New(0, 8, 0, 6),
             Size = UDim2New(1, -16, 1, -12),
-            TextSize = 11,
-            ZIndex = 1003
+            TextSize = 13
         })  InputBox:AddToTheme({TextColor3 = "Text"})
 
         local ActionButton = Instances:Create("TextButton", {
@@ -1061,33 +1063,58 @@ local Library do
             Name = "\0",
             FontFace = Library.Font,
             AutoButtonColor = false,
-            Text = Mode == "Import" and "Import" or "Copy",
+            Text = "Copy",
             TextColor3 = FromRGB(222, 236, 248),
             AnchorPoint = Vector2New(0, 1),
-            Position = UDim2New(0, 12, 1, -12),
-            Size = UDim2New(1, -24, 0, 28),
+            Position = UDim2New(0, 10, 1, -8),
+            Size = UDim2New(1, -20, 0, 28),
             BorderSizePixel = 2,
             BorderColor3 = FromRGB(12, 12, 12),
             BackgroundColor3 = FromRGB(58, 138, 224),
-            TextSize = 12,
-            ZIndex = 1002
+            TextSize = 12
         })  ActionButton:AddToTheme({BackgroundColor3 = "Accent", BorderColor3 = "Border"})
 
-        local function Destroy()
-            Overlay.Instance:Destroy()
+        local CurrentMode, CurrentCallback
+
+        local function Hide()
+            Box.Instance.Visible = false
         end
 
-        CloseButton:Connect("MouseButton1Click", Destroy)
+        CloseButton:Connect("MouseButton1Click", Hide)
+
+        -- Interactive click feedback: swap label + flash colour so the user
+        -- can see their click actually registered, then restore after a beat.
+        local ActionBusy = false
+        local function FlashAction(FeedbackText)
+            if ActionBusy then return end
+            ActionBusy = true
+
+            local OriginalText = ActionButton.Instance.Text
+
+            ActionButton.Instance.Text = FeedbackText
+            ActionButton:ChangeItemTheme({BackgroundColor3 = "Element"})
+            ActionButton:Tween(nil, {BackgroundColor3 = FromRGB(70, 180, 110)})
+
+            task.delay(0.9, function()
+                if ActionButton.Instance and ActionButton.Instance.Parent then
+                    ActionButton.Instance.Text = OriginalText
+                    ActionButton:ChangeItemTheme({BackgroundColor3 = "Accent"})
+                    ActionButton:Tween(nil, {BackgroundColor3 = Library.Theme.Accent})
+                end
+                ActionBusy = false
+            end)
+        end
 
         ActionButton:Connect("MouseButton1Click", function()
-            if Mode == "Import" then
-                if Callback then
-                    Callback(InputBox.Instance.Text)
+            if CurrentMode == "Import" then
+                FlashAction("Imported!")
+                if CurrentCallback then
+                    CurrentCallback(InputBox.Instance.Text)
                 end
-                Destroy()
             else
                 if setclipboard then
                     pcall(setclipboard, InputBox.Instance.Text)
+                    FlashAction("Copied!")
                     Library:Notification("Success", "Config copied to clipboard", 3)
                 else
                     Library:Notification("Error", "Your executor doesn't support setclipboard", 3)
@@ -1095,7 +1122,26 @@ local Library do
             end
         end)
 
-        return Overlay
+        local BoxHandle = { Instance = Box }
+
+        function BoxHandle:Show(Title, Mode, PresetText, Callback)
+            CurrentMode = Mode
+            CurrentCallback = Callback
+
+            TitleLabel.Instance.Text = Title
+            InputBox.Instance.Text = PresetText or ""
+            InputBox.Instance.PlaceholderText = Mode == "Import" and "Paste your config here..." or ""
+            InputBox.Instance.TextEditable = Mode == "Import"
+            ActionButton.Instance.Text = Mode == "Import" and "Import" or "Copy"
+
+            Box.Instance.Visible = true
+        end
+
+        function BoxHandle:Hide()
+            Hide()
+        end
+
+        return BoxHandle
     end
 
     Library.RefreshConfigsList = function(self, Element)
@@ -1203,13 +1249,25 @@ local Library do
         end
     end
 
-    -- [Feature: Config Export] Serialise current theme colours to JSON
+    -- [Feature: Config Export] Serialise current theme colours to JSON.
+    -- Pretty-printed (one "Key": "Value" pair per line, sorted alphabetically)
+    -- so it's actually readable in the export box instead of one dense line.
     Library.GetThemeConfig = function(self)
-        local ThemeData = { }
-        for Key, Color in self.Theme do
-            ThemeData[Key] = "#" .. Color:ToHex()
+        local Keys = { }
+        for Key in self.Theme do
+            TableInsert(Keys, Key)
         end
-        return HttpService:JSONEncode(ThemeData)
+        table.sort(Keys)
+
+        local Lines = { "{" }
+        for Index, Key in ipairs(Keys) do
+            local HexValue = "#" .. self.Theme[Key]:ToHex()
+            local Comma = Index < #Keys and "," or ""
+            TableInsert(Lines, string.format('    "%s": "%s"%s', Key, HexValue, Comma))
+        end
+        TableInsert(Lines, "}")
+
+        return table.concat(Lines, "\n")
     end
 
     -- [Feature: Config Export] Load theme colours from a JSON string
@@ -1446,15 +1504,19 @@ local Library do
                 })
 
                 if Data.SubPages then
-                    Items["SubPages"] = Instances:Create("Frame", {
+                    Items["SubPages"] = Instances:Create("ScrollingFrame", {
                         Parent = Items["Page"].Instance,
                         Name = "\0",
-                        Size = UDim2New(0, 0, 0, 35),
+                        Size = UDim2New(1, 0, 0, 35),
                         BorderColor3 = FromRGB(42, 49, 45),
                         BorderSizePixel = 2,
-                        AutomaticSize = Enum.AutomaticSize.X,
+                        AutomaticCanvasSize = Enum.AutomaticSize.X,
+                        CanvasSize = UDim2New(0, 0, 0, 0),
+                        ScrollingDirection = Enum.ScrollingDirection.X,
+                        ScrollBarThickness = 3,
+                        ScrollBarImageColor3 = FromRGB(58, 138, 224),
                         BackgroundColor3 = FromRGB(20, 24, 21)
-                    })  Items["SubPages"]:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
+                    })  Items["SubPages"]:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline", ScrollBarImageColor3 = "Accent"})
 
                     Items["SubPages"]:Border("Border")
 
@@ -1583,9 +1645,14 @@ local Library do
                     end
                 end
 
-                Library:Connect(NewTween.Tween.Completed, function()
+                if NewTween then
+                    Library:Connect(NewTween.Tween.Completed, function()
+                        Debounce = false
+                    end)
+                else
                     Debounce = false
-                end)
+                    Library:Notification("Warning", "Skipped a page transition animation (no tweenable elements found).", 3)
+                end
             end
 
             Items["Inactive"]:Connect("MouseButton1Down", function()
@@ -1818,9 +1885,14 @@ local Library do
                     end
                 end
 
-                Library:Connect(NewTween.Tween.Completed, function()
+                if NewTween then
+                    Library:Connect(NewTween.Tween.Completed, function()
+                        Debounce = false
+                    end)
+                else
                     Debounce = false
-                end)
+                    Library:Notification("Warning", "Skipped a page transition animation (no tweenable elements found).", 3)
+                end
             end
 
             Items["Inactive"]:Connect("MouseButton1Down", function()
@@ -2115,6 +2187,14 @@ local Library do
 
                 function NewButton:SetVisibility(Bool)
                     SubItems["NewButton"].Instance.Visible = Bool
+                end
+
+                -- Greys the label out when there's nothing to act on (e.g. no
+                -- config selected) and turns it back to normal text color
+                -- once there is, as a visual cue rather than just failing silently.
+                function NewButton:SetEnabled(Bool)
+                    SubItems["Text"]:ChangeItemTheme({TextColor3 = Bool and "Text" or "Placeholder Text"})
+                    SubItems["Text"].Instance.TextColor3 = Bool and Library.Theme.Text or Library.Theme["Placeholder Text"]
                 end
 
                 local PageSearchData = Library.SearchItems[Data.Page]
@@ -2650,12 +2730,17 @@ local Library do
                     end
                 end
                 
-                NewTween.Tween.Completed:Connect(function()
-                    Debounce = false 
-                    Items["OptionHolder"].Instance.Visible = Dropdown.IsOpen
-                    task.wait(0.2)
-                    Items["OptionHolder"].Instance.Parent = not Dropdown.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
+                if NewTween then
+                    NewTween.Tween.Completed:Connect(function()
+                        Debounce = false 
+                        Items["OptionHolder"].Instance.Visible = Dropdown.IsOpen
+                        task.wait(0.2)
+                        Items["OptionHolder"].Instance.Parent = not Dropdown.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
                 end)
+                else
+                    Debounce = false
+                    Library:Notification("Warning", "Skipped an animation (no tweenable elements found).", 3)
+                end
             end
 
             function Dropdown:SetVisibility(Bool)
@@ -3810,12 +3895,17 @@ local Library do
                     end
                 end
                 
-                NewTween.Tween.Completed:Connect(function()
-                    Debounce = false 
-                    Items["ColorpickerWindow"].Instance.Visible = Colorpicker.IsOpen
-                    task.wait(0.2)
-                    Items["ColorpickerWindow"].Instance.Parent = not Colorpicker.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
+                if NewTween then
+                    NewTween.Tween.Completed:Connect(function()
+                        Debounce = false 
+                        Items["ColorpickerWindow"].Instance.Visible = Colorpicker.IsOpen
+                        task.wait(0.2)
+                        Items["ColorpickerWindow"].Instance.Parent = not Colorpicker.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
                 end)
+                else
+                    Debounce = false
+                    Library:Notification("Warning", "Skipped an animation (no tweenable elements found).", 3)
+                end
             end
 
             UpdateSync = function(Bool)
@@ -4327,12 +4417,17 @@ local Library do
                     end
                 end
                 
-                NewTween.Tween.Completed:Connect(function()
-                    Debounce = false 
-                    Items["KeybindWindow"].Instance.Visible = Keybind.IsOpen
-                    task.wait(0.2)
-                    Items["KeybindWindow"].Instance.Parent = not Keybind.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
+                if NewTween then
+                    NewTween.Tween.Completed:Connect(function()
+                        Debounce = false 
+                        Items["KeybindWindow"].Instance.Visible = Keybind.IsOpen
+                        task.wait(0.2)
+                        Items["KeybindWindow"].Instance.Parent = not Keybind.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
                 end)
+                else
+                    Debounce = false
+                    Library:Notification("Warning", "Skipped an animation (no tweenable elements found).", 3)
+                end
             end
 
             function Keybind:SetMode(Mode)
@@ -5614,6 +5709,21 @@ end)
             )
         end
 
+        -- [Feature: Multi-instance Safety] Same creator + title + game re-running
+        -- this script replaces its own previous window; other hubs are untouched.
+        do
+            local InstanceKey = tostring(Window.DevName) .. "::" .. tostring(Window.Title ~= "" and Window.Title or "Script") .. "::" .. tostring(game.PlaceId)
+            local Registry = getgenv().Adytum_Instances
+
+            if Registry[InstanceKey] then
+                pcall(Registry[InstanceKey])
+            end
+
+            Registry[InstanceKey] = function()
+                Library:Unload()
+            end
+        end
+
         -- Store window metadata in Library so CreateSettingsPage can access it
         Library.TitleText        = Window.Title
         Library.TitlePosition    = Window.TitlePosition
@@ -5760,6 +5870,14 @@ end)
                         if Items["ResizeButton"] then
                             Items["ResizeButton"].Instance.Visible = false
                         end
+
+                        -- Side (tabs + profile) and Content (pages: Settings,
+                        -- Credits, Configs...) are sized relative to the window
+                        -- and go negative once it shrinks to 30px, which used
+                        -- to leave a sliver of the profile visible and broke
+                        -- the pages inside. Just hide them outright instead.
+                        Items["Side"].Instance.Visible = false
+                        Items["Content"].Instance.Visible = false
                     else
                         Items["Window"].Instance:TweenSize(
                             FullSize,
@@ -5769,6 +5887,9 @@ end)
                         if Items["ResizeButton"] then
                             Items["ResizeButton"].Instance.Visible = true
                         end
+
+                        Items["Side"].Instance.Visible = true
+                        Items["Content"].Instance.Visible = true
                     end
                 end)
 
@@ -6053,17 +6174,22 @@ end)
                 end
             end
             
-            NewTween.Tween.Completed:Connect(function()
-                Debounce = false 
-                Items["Window"].Instance.Visible = Window.IsOpen
-                if Window.IsOpen then
-                    Items["MouseBackground"].Instance.Visible = true
-                    UserInputService.MouseIconEnabled = false
-                else
-                    Items["MouseBackground"].Instance.Visible = false
-                    UserInputService.MouseIconEnabled = true
-                end
+            if NewTween then
+                NewTween.Tween.Completed:Connect(function()
+                    Debounce = false 
+                    Items["Window"].Instance.Visible = Window.IsOpen
+                    if Window.IsOpen then
+                        Items["MouseBackground"].Instance.Visible = true
+                        UserInputService.MouseIconEnabled = false
+                    else
+                        Items["MouseBackground"].Instance.Visible = false
+                        UserInputService.MouseIconEnabled = true
+                    end
             end)
+            else
+                Debounce = false
+                Library:Notification("Warning", "Skipped an animation (no tweenable elements found).", 3)
+            end
         end
 
         Library:Connect(UserInputService.InputBegan, function(Input)
@@ -6657,9 +6783,19 @@ end)
                             Items = PresetNames,
                             Default = Library.ActivePreset,
                             Callback = function(Value)
-                                if Value then
-                                    Library:SetThemePreset(Value)
+                                if not Value then return end
+
+                                -- Dropdown:Set(Data.Default) fires this same
+                                -- Callback once on creation with the current
+                                -- preset; skip that so the notification only
+                                -- shows on an actual user-driven change.
+                                if Value == Library.ActivePreset then
+                                    return
                                 end
+
+                                Library:SetThemePreset(Value)
+                                Library:SaveActivePreset(Value)
+                                Library:Notification("Success", "Preset theme saved automatically", 3)
                             end
                         })
                     end
@@ -6683,6 +6819,7 @@ end)
                 local ConfigsSection = ConfigsSubPage:Section({Name = "Configs", Side = 1}) do
                     local ConfigName
                     local ConfigSelected
+                    local UpdateSelectionDependentButtons -- forward declared; assigned once the buttons below exist
 
                     local ConfigsSearchbox = ConfigsSection:Searchbox({
                         Name = "SearchboxConfigs",
@@ -6691,6 +6828,7 @@ end)
                         Multi = false,
                         Callback = function(Value)
                             ConfigSelected = Value
+                            UpdateSelectionDependentButtons()
                         end
                     })
 
@@ -6719,17 +6857,19 @@ end)
                         end
                     end)
 
-                    CreateAndDeleteButton:Add("Delete", function()
+                    local DeleteButton = CreateAndDeleteButton:Add("Delete", function()
                         if ConfigSelected then
                             Library:DeleteConfig(ConfigSelected)
                             Library:Notification("Success", "Deleted config "..ConfigSelected .. " succesfully", 5)
+                            ConfigSelected = nil
+                            UpdateSelectionDependentButtons()
                             Library:RefreshConfigsList(ConfigsSearchbox)
                         end
                     end)
 
                     local LoadAndSaveButton = ConfigsSection:Button()    
 
-                    LoadAndSaveButton:Add("Load", function()
+                    local LoadButton = LoadAndSaveButton:Add("Load", function()
                         if ConfigSelected then
                             local Success, Result = Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected))
 
@@ -6756,7 +6896,7 @@ end)
                     end)
 
                     local AutoloadButton = ConfigsSection:Button()
-                    AutoloadButton:Add("Set as Autoload [AT]", function()
+                    local AutoloadActionButton = AutoloadButton:Add("Set as Autoload [AT]", function()
                         local targetConfig = ConfigSelected
                         if targetConfig then
                             local oldPath = Library.Folders.Configs .. "/" .. targetConfig
@@ -6777,17 +6917,30 @@ end)
                         end
                     end)
 
+                    -- [Feature: Config selection feedback] Grey the label out
+                    -- when no config is selected, white once one is, instead
+                    -- of the buttons silently doing nothing when pressed.
+                    UpdateSelectionDependentButtons = function()
+                        local HasSelection = ConfigSelected ~= nil and ConfigSelected ~= ""
+                        DeleteButton:SetEnabled(HasSelection)
+                        LoadButton:SetEnabled(HasSelection)
+                        AutoloadActionButton:SetEnabled(HasSelection)
+                    end
+                    UpdateSelectionDependentButtons()
+
                     Library:RefreshConfigsList(ConfigsSearchbox)
 
                     -- [Feature: Config Export] Theme export/import (dev-togglable)
                     if Library.AllowConfigExport then
                         local ExportImportButton = ConfigsSection:Button()
+                        local ConfigBox = Library:BuildInlineConfigBox(ConfigsSection.Items["Content"].Instance)
+
                         ExportImportButton:Add("Export Config", function()
                             local ThemeJson = Library:GetThemeConfig()
-                            Library:OpenConfigBox("Export Config", "Export", ThemeJson)
+                            ConfigBox:Show("Export Config", "Export", ThemeJson)
                         end)
                         ExportImportButton:Add("Import Config", function()
-                            Library:OpenConfigBox("Import Config", "Import", nil, function(Text)
+                            ConfigBox:Show("Import Config", "Import", nil, function(Text)
                                 if Text == nil or Text == "" then
                                     Library:Notification("Error", "Please paste a config first", 5)
                                     return
