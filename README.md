@@ -6,7 +6,7 @@ Adytum Reimagined is a feature-rich, high-performance UI library designed for sc
 
 ## Media
 
-Reimagined GUI:
+Reimagined GUI (Censored Information):
 
 ![Main UI Demonstration](https://github.com/MrSecret-Official/Adytum_Library_Reimagined/blob/main/Github_assets/Library.png)
 
@@ -16,6 +16,7 @@ Reimagined GUI:
 
 ### Topbar and Minimization
 The library features a dedicated 30-pixel topbar that serves as a drag handle and houses the title and window control button. Clicking the minimize button collapses the UI into a slim horizontal topbar, automatically hiding components and disabling resizing. Clicking it again restores the UI to its full size.
+![Topbar minimized](https://github.com/MrSecret-Official/Adytum_Library_Reimagined/blob/main/Github_assets/Minim_gui.png)
 
 ### Custom Folder Hierarchy
 When creating a window, the library automatically organizes files to prevent clutter across different hubs and games:
