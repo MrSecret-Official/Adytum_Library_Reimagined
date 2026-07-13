@@ -5608,17 +5608,22 @@ end)
 
         setmetatable(Window, self)
 
-        -- Settings tab is mandatory: every Window automatically gets its
-        -- Watermark, KeybindList and full Settings page (Theming, Configs,
-        -- Autoload, UI Keybind, Panic/Rejoin/Serverhop), matching the
-        -- original Pressure script's behavior.
-        local AutoWatermark = Data.Watermark ~= false and Library:Watermark(Data.WatermarkName or Data.watermarkname or "") or nil
-        local AutoKeybindList = Data.KeybindList ~= false and Library:KeybindList() or nil
+        -- Settings tab is mandatory and ALWAYS goes last, no matter how many
+        -- other pages the script adds afterward, and this cannot be disabled
+        -- or reordered from outside the library. We defer its creation with
+        -- task.defer so it runs only after the rest of the calling script's
+        -- current execution (i.e. every Window:Page(...) call the user makes
+        -- right after Window(...) returns) has finished, which guarantees
+        -- the Settings tab button is the last child added to the tab list.
+        task.defer(function()
+            local AutoWatermark = Library:Watermark("")
+            local AutoKeybindList = Library:KeybindList()
 
-        Window.Watermark = AutoWatermark
-        Window.KeybindList = AutoKeybindList
+            Window.Watermark = AutoWatermark
+            Window.KeybindList = AutoKeybindList
 
-        Library:CreateSettingsPage(Window, AutoWatermark, AutoKeybindList)
+            Library:CreateSettingsPage(Window, AutoWatermark, AutoKeybindList)
+        end)
 
         return Window
     end
