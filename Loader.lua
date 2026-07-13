@@ -520,18 +520,32 @@ local Library do
 
             local ResizeButton = Instances:Create("ImageButton", {
 				Parent = Gui,
-                Image = "rbxassetid://",
+                Image = "",
 				AnchorPoint = Vector2New(1, 1),
 				BorderColor3 = FromRGB(0, 0, 0),
-				Size = UDim2New(0, 6, 0, 6),
-				Position = UDim2New(1, -4, 1, -4),
+				Size = UDim2New(0, 14, 0, 14),
+				Position = UDim2New(1, -3, 1, -3),
                 Name = "\0",
 				BorderSizePixel = 0,
-				BackgroundTransparency = 1,
-                ZIndex = 5,
+				BackgroundTransparency = 0.35,
+                BackgroundColor3 = FromRGB(255, 255, 255),
+                ZIndex = 999,
 				AutoButtonColor = false,
                 Visible = true,
-			})  ResizeButton:AddToTheme({ImageColor3 = "Accent"})
+			})  ResizeButton:AddToTheme({BackgroundColor3 = "Accent"})
+
+            Instances:Create("UICorner", {
+                Parent = ResizeButton.Instance,
+                Name = "\0",
+                CornerRadius = UDimNew(0, 3),
+            })
+
+            ResizeButton:OnHover(function()
+                ResizeButton.Instance.BackgroundTransparency = 0.05
+            end)
+            ResizeButton:OnHoverLeave(function()
+                ResizeButton.Instance.BackgroundTransparency = 0.35
+            end)
 
             local InputChanged
 
@@ -571,6 +585,129 @@ local Library do
             end)
 
             return Resizing
+        end
+
+        -- Ported from the old library: side/top/bottom edge resize strips,
+        -- in addition to the corner handle above. Both respect the same
+        -- Minimum/Maximum Vector2 clamps.
+        Instances.MakeEdgeResizeable = function(self, Minimum, Maximum)
+            if not self.Instance then 
+                return
+            end
+
+            local Gui = self.Instance
+
+            Minimum = Minimum or Vector2New(Gui.AbsoluteSize.X, Gui.AbsoluteSize.Y)
+            Maximum = Maximum or Vector2New(9999, 9999)
+
+            local HandleThickness = 6
+            local Gap = 2
+
+            -- Strips are parented INSIDE the window frame (same as the
+            -- corner handle) and positioned with Scale + Offset so they
+            -- automatically follow the window's position/size with no
+            -- RenderStepped tracking needed.
+            local function MakeStrip(Position, Size, AnchorPoint)
+                local Strip = Instances:Create("TextButton", {
+                    Parent = Gui,
+                    Name = "\0",
+                    AnchorPoint = AnchorPoint,
+                    Position = Position,
+                    Size = Size,
+                    BackgroundTransparency = 0.85,
+                    BackgroundColor3 = FromRGB(255, 255, 255),
+                    BorderSizePixel = 0,
+                    Text = "",
+                    AutoButtonColor = false,
+                    ZIndex = 999,
+                    Active = true,
+                })  Strip:AddToTheme({BackgroundColor3 = "Accent"})
+
+                Strip:OnHover(function()
+                    Strip.Instance.BackgroundTransparency = 0.4
+                end)
+                Strip:OnHoverLeave(function()
+                    Strip.Instance.BackgroundTransparency = 0.85
+                end)
+
+                return Strip
+            end
+
+            local StripRight = MakeStrip(UDim2New(1, Gap, 0, 0), UDim2New(0, HandleThickness, 1, 0), Vector2New(0, 0))
+            local StripLeft = MakeStrip(UDim2New(0, -Gap, 0, 0), UDim2New(0, HandleThickness, 1, 0), Vector2New(1, 0))
+            local StripTop = MakeStrip(UDim2New(0, 0, 0, -Gap), UDim2New(1, 0, 0, HandleThickness), Vector2New(0, 1))
+            local StripBottom = MakeStrip(UDim2New(0, 0, 1, Gap), UDim2New(1, 0, 0, HandleThickness), Vector2New(0, 0))
+
+            local EdgeResizing = false
+            local EdgeResizeFn = nil
+            local EdgeMouseStart = nil
+            local EdgePosStart = nil
+            local EdgeSizeStart = nil
+
+            local function BeginEdgeResize(Fn, Input)
+                EdgeResizing = true
+                EdgeResizeFn = Fn
+                EdgeMouseStart = Input.Position
+                EdgePosStart = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
+                EdgeSizeStart = Vector2New(Gui.AbsoluteSize.X, Gui.AbsoluteSize.Y)
+            end
+
+            local function IsResizeInput(Input)
+                return Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch
+            end
+
+            StripRight:Connect("InputBegan", function(Input)
+                if not IsResizeInput(Input) then return end
+                BeginEdgeResize(function(dx, _)
+                    local w = MathClamp(EdgeSizeStart.X + dx, Minimum.X, Maximum.X)
+                    Gui.Size = UDim2New(0, w, 0, EdgeSizeStart.Y)
+                    Gui.Position = UDim2New(0, EdgePosStart.X, 0, EdgePosStart.Y)
+                end, Input)
+            end)
+
+            StripLeft:Connect("InputBegan", function(Input)
+                if not IsResizeInput(Input) then return end
+                BeginEdgeResize(function(dx, _)
+                    local w = MathClamp(EdgeSizeStart.X - dx, Minimum.X, Maximum.X)
+                    local nx = EdgePosStart.X + (EdgeSizeStart.X - w)
+                    Gui.Size = UDim2New(0, w, 0, EdgeSizeStart.Y)
+                    Gui.Position = UDim2New(0, nx, 0, EdgePosStart.Y)
+                end, Input)
+            end)
+
+            StripTop:Connect("InputBegan", function(Input)
+                if not IsResizeInput(Input) then return end
+                BeginEdgeResize(function(_, dy)
+                    local h = MathClamp(EdgeSizeStart.Y - dy, Minimum.Y, Maximum.Y)
+                    local ny = EdgePosStart.Y + (EdgeSizeStart.Y - h)
+                    Gui.Size = UDim2New(0, EdgeSizeStart.X, 0, h)
+                    Gui.Position = UDim2New(0, EdgePosStart.X, 0, ny)
+                end, Input)
+            end)
+
+            StripBottom:Connect("InputBegan", function(Input)
+                if not IsResizeInput(Input) then return end
+                BeginEdgeResize(function(_, dy)
+                    local h = MathClamp(EdgeSizeStart.Y + dy, Minimum.Y, Maximum.Y)
+                    Gui.Size = UDim2New(0, EdgeSizeStart.X, 0, h)
+                    Gui.Position = UDim2New(0, EdgePosStart.X, 0, EdgePosStart.Y)
+                end, Input)
+            end)
+
+            Library:Connect(UserInputService.InputEnded, function(Input)
+                if IsResizeInput(Input) then
+                    EdgeResizing = false
+                    EdgeResizeFn = nil
+                end
+            end)
+
+            Library:Connect(UserInputService.InputChanged, function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+                    if EdgeResizing and EdgeResizeFn then
+                        EdgeResizeFn(Input.Position.X - EdgeMouseStart.X, Input.Position.Y - EdgeMouseStart.Y)
+                    end
+                end
+            end)
         end
 
         Instances.OnHover = function(self, Function)
@@ -705,22 +842,7 @@ local Library do
         PaddingLeft = UDimNew(0, 12)
     })
 
-    Library.AutosaveConfig = function(self)
-        local Success, Result = self:SafeCall(function()
-            if not isfolder(self.Folders.Configs) then
-                makefolder(self.Folders.Configs)
-            end
-
-            writefile(self.Folders.Configs .. "/Autosave.json", self:GetConfig())
-        end)
-
-        return Success, Result
-    end
-
     Library.Unload = function(self)
-        -- Mandatory: settings are always saved before the UI is torn down
-        self:AutosaveConfig()
-
         for Index, Value in self.Connections do 
             Value.Connection:Disconnect()
         end
@@ -883,22 +1005,6 @@ local Library do
         return Success, Result
     end
 
-    Library.AutoloadConfig = function(self)
-        -- Call this AFTER all Windows/Pages/Sections/Elements have been built,
-        -- so every Flag exists and can be restored from the saved file.
-        local AutosavePath = self.Folders.Configs .. "/Autosave.json"
-
-        if isfile(AutosavePath) then
-            local Success, Result = self:SafeCall(function()
-                self:LoadConfig(readfile(AutosavePath))
-            end)
-
-            return Success, Result
-        end
-
-        return false, "No autosave file found"
-    end
-
     Library.DeleteConfig = function(self, Config)
         if isfile(Library.Folders.Configs .. "/" .. Config) then 
             delfile(Library.Folders.Configs .. "/" .. Config)
@@ -1004,7 +1110,11 @@ local Library do
                 end
 
                 if Data.Resizeable then 
-                    Items["Window"]:MakeResizeable(Vector2New(Data.Size.X.Offset, Data.Size.Y.Offset), Vector2New(9999, 9999))
+                    local Minimum = Data.MinSize or Vector2New(Data.Size.X.Offset, Data.Size.Y.Offset)
+                    local Maximum = Data.MaxSize or Vector2New(9999, 9999)
+
+                    Items["Window"]:MakeResizeable(Minimum, Maximum)
+                    Items["Window"]:MakeEdgeResizeable(Minimum, Maximum)
                 end
 
                 Items["UIStroke"] = Items["Window"]:Border("Outline")
@@ -4760,7 +4870,9 @@ local function getPing()
 end
 
 -- Start watermark update loop (single Heartbeat, lightweight frame counter)
-local updateConnection = RunService.Heartbeat:Connect(function()
+-- Tracked via Library:Connect so Library:Unload() (and the Panic button)
+-- actually disconnects it instead of leaving it running forever.
+Library:Connect(RunService.Heartbeat, function()
     wmFrameCount += 1
     local now = tick()
     if now - wmLastDisplayUpdate >= wmUpdateInterval then
@@ -4770,7 +4882,9 @@ local updateConnection = RunService.Heartbeat:Connect(function()
         wmFrameCount = 0
         wmLastTime   = now
         wmLastDisplayUpdate = now
-        Items["Text"].Instance.Text = string.format("%s | %d fps | %d ms", Name, wmCachedFPS, wmLastPing)
+        if Items["Text"] and Items["Text"].Instance then
+            Items["Text"].Instance.Text = string.format("%s | %d fps | %d ms", Name, wmCachedFPS, wmLastPing)
+        end
     end
 end)
 
@@ -5257,6 +5371,13 @@ end)
             FadeTime = Data.FadeTime or Data.fadetime or 0.4,
             Size = Data.Size or Data.size or UDim2New(0, 751, 0, 539),
 
+            -- Resize limits: developer can pass MinSize/MaxSize (Vector2) when
+            -- creating the Window. If omitted, defaults to the library's
+            -- current behavior: minimum = initial window size, maximum =
+            -- effectively unbounded.
+            MinSize = Data.MinSize or Data.minsize or nil,
+            MaxSize = Data.MaxSize or Data.maxsize or nil,
+
             Pages = { },
             Items = { },
 
@@ -5269,7 +5390,9 @@ end)
             Resizeable = true,
             AnchorPoint = Vector2New(0, 0),
             Position = UDim2New(0, Camera.ViewportSize.X / 3.3, 0, Camera.ViewportSize.Y / 3.3),
-            Size = Window.Size
+            Size = Window.Size,
+            MinSize = Window.MinSize,
+            MaxSize = Window.MaxSize
         }) do
             Items["Side"] = Instances:Create("Frame", {
                 Parent = Items["Window"].Instance,
