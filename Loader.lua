@@ -705,7 +705,22 @@ local Library do
         PaddingLeft = UDimNew(0, 12)
     })
 
+    Library.AutosaveConfig = function(self)
+        local Success, Result = self:SafeCall(function()
+            if not isfolder(self.Folders.Configs) then
+                makefolder(self.Folders.Configs)
+            end
+
+            writefile(self.Folders.Configs .. "/Autosave.json", self:GetConfig())
+        end)
+
+        return Success, Result
+    end
+
     Library.Unload = function(self)
+        -- Mandatory: settings are always saved before the UI is torn down
+        self:AutosaveConfig()
+
         for Index, Value in self.Connections do 
             Value.Connection:Disconnect()
         end
@@ -866,6 +881,22 @@ local Library do
         end)
 
         return Success, Result
+    end
+
+    Library.AutoloadConfig = function(self)
+        -- Call this AFTER all Windows/Pages/Sections/Elements have been built,
+        -- so every Flag exists and can be restored from the saved file.
+        local AutosavePath = self.Folders.Configs .. "/Autosave.json"
+
+        if isfile(AutosavePath) then
+            local Success, Result = self:SafeCall(function()
+                self:LoadConfig(readfile(AutosavePath))
+            end)
+
+            return Success, Result
+        end
+
+        return false, "No autosave file found"
     end
 
     Library.DeleteConfig = function(self, Config)
@@ -5574,7 +5605,22 @@ end)
         end)
 
         Window:SetOpen(true)
-        return setmetatable(Window, self)
+
+        setmetatable(Window, self)
+
+        -- Settings tab is mandatory: every Window automatically gets its
+        -- Watermark, KeybindList and full Settings page (Theming, Configs,
+        -- Autoload, UI Keybind, Panic/Rejoin/Serverhop), matching the
+        -- original Pressure script's behavior.
+        local AutoWatermark = Data.Watermark ~= false and Library:Watermark(Data.WatermarkName or Data.watermarkname or "") or nil
+        local AutoKeybindList = Data.KeybindList ~= false and Library:KeybindList() or nil
+
+        Window.Watermark = AutoWatermark
+        Window.KeybindList = AutoKeybindList
+
+        Library:CreateSettingsPage(Window, AutoWatermark, AutoKeybindList)
+
+        return Window
     end
 
     Library.Page = function(self, Data)
