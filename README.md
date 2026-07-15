@@ -60,11 +60,26 @@ Display styled slide-in alert notifications with custom titles, descriptions, an
 ### Multi-Instance Safety
 Automatically replaces and cleans up any existing GUI instance running with the same DevName and Title when the script is re-executed, preventing duplicate windows and saving system memory.
 
+### UI & Font Scaling
+Adjust the visual size of the interface (85% to 120%) and general library text sizes (85% to 125%) dynamically from the settings panel to ensure comfortable reading.
+
+### Reduce Motion Mode
+Instantly disables or minimizes all fade/slide transitions and animations for users who prefer faster rendering or have performance-limited execution environments.
+
+### High Contrast Mode
+Automatically boosts the current theme colors mathematically to ensure accessibility, locking editing of key color roles to prevent unreadable configurations.
+
+### Draggable Inventory Viewer HUD
+Provides a built-in HUD overlay to view a target player's thumbnail, health, distance, and tools in a visual grid, controlled dynamically via scripts.
+
+### Settings Persistence
+Automatically saves and restores user preferences (HUD visibility, window scale, font scale, and animation/motion settings) between execution sessions.
+
 ---
 
 ## Documentation
 
-For a complete breakdown of all GUI parameters, layout configurations, custom elements, and helper methods, please refer directly to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
+For a complete breakdown of all GUI parameters, layout configurations, custom elements, and helper methods, please refer directly to the [Detailed Documentation](DOCUMENTATION.md).
 
 ---
 
@@ -95,13 +110,13 @@ local Ady_Lib = loadstring(game:HttpGet('https://raw.githubusercontent.com/MrSec
 -- unbounded maximum, same as before. Uncomment below to set custom limits.
 local Window = Ady_Lib:Window({
     Title = "Blox Hub",
-    DevName = "mrsecret",
+    DevName = "Owner",
     Logo = "77218680285262",
     FadeTime = 0.4,
     TitlePosition = "Topbar",
     AllowConfigExport = true,
     Credits = {
-        { Name = "mrsecret", Role = "Developer" }
+        { Name = "Owner", Role = "Developer" }
     }
     -- MinSize = Vector2.new(500, 350),
     -- MaxSize = Vector2.new(1000, 700),
@@ -236,4 +251,4 @@ Ady_Lib:Notification("Loaded", "Test script finished loading.", 5)
 
 ## Detailed Documentation
 
-For a complete breakdown of all GUI parameters, design structures, custom layout configurations, and helper methods, refer to the [Detailed Documentation](file:///c:/Users/rubem/Documents/Projects/Adytum_Reimagined/DOCUMENTATION.md).
+For a complete breakdown of all GUI parameters, design structures, custom layout configurations, and helper methods, refer to the [Detailed Documentation](DOCUMENTATION.md).
