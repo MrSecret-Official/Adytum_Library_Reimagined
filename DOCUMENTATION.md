@@ -51,14 +51,14 @@ Creates and launches the main graphical interface frame. The **Settings** tab (h
 
 ```lua
 local Window = Ady_Lib:Window({
-    Title = "Blox Hub 2",
-    DevName = "Jhon",
+    Title = "Blox Hub",
+    DevName = "Owner",
     Logo = "77218680285262",
     FadeTime = 0.4,
     TitlePosition = "Topbar",
     AllowConfigExport = true,
     Credits = {
-        { Name = "Zack", Role = "Lead Developer" }
+        { Name = "Owner", Role = "Lead Developer" }
     },
     MinSize = Vector2.new(500, 350),
     MaxSize = Vector2.new(1000, 700)
@@ -96,11 +96,11 @@ Invoking `Library:OpenConfigBox(title, mode, presetText, callback)` overlays a c
 - **Export Mode**: Displays the JSON configuration string in a read-only multi-line textbox, offering a Copy button (supporting `setclipboard`).
 - **Import Mode**: Provides an empty input field for pasting JSON payloads and triggers the callback parameter upon clicking Import.
 
-### HUD Overlay Widgets (Watermark & Keybind List)
-Two auxiliary HUD overlay panels are initialized automatically when a window is created and are accessible via the returned window object:
+### HUD Overlay Widgets (Watermark, Keybind List & Inventory Viewer)
+The library provides on-screen HUD overlay widgets to display real-time statistics, active states, or player information.
 
 #### `Window.Watermark`
-A draggable on-screen display panel that shows real-time stats including the hub's name, active frame rate (FPS), and network latency (Ping).
+A draggable on-screen display panel that shows real-time stats including the hub's name, active frame rate (FPS), and network latency (Ping). It is initialized automatically when a window is created.
 - **Set Visibility**:
   ```lua
   Window.Watermark:SetVisibility(true) -- Shows the watermark
@@ -108,12 +108,28 @@ A draggable on-screen display panel that shows real-time stats including the hub
   ```
 
 #### `Window.KeybindList`
-A draggable on-screen overlay list displaying the currently active keybind components, their trigger keys, and activation modes (e.g., "Toggle", "Hold").
+A draggable on-screen overlay list displaying the currently active keybind components, their trigger keys, and activation modes (e.g., "Toggle", "Hold"). It is initialized automatically when a window is created.
 - **Set Visibility**:
   ```lua
   Window.KeybindList:SetVisibility(true) -- Shows the keybind list
   Window.KeybindList:SetVisibility(false) -- Hides the keybind list
   ```
+
+#### `Library:InventoryViewer()`
+A draggable on-screen display panel designed to show a specific player's profile avatar thumbnail, health status, distance (in studs), and tool inventory. Unlike the watermark and keybind lists, this HUD widget is initialized manually:
+```lua
+local Viewer = Ady_Lib:InventoryViewer()
+```
+
+##### Methods on Returned InventoryViewer Object:
+- **`:SetPlayer(playerInstance)`**: Sets the target player to inspect, fetching their Roblox avatar thumbnail and setting the widget title to `"{Username}'s Inventory"`.
+- **`:SetPlayerHealth(value)`**: Updates the displayed health text of the player (e.g., `Viewer:SetPlayerHealth(100)`).
+- **`:SetPlayerDistance(value)`**: Updates the displayed distance in studs (e.g., `Viewer:SetPlayerDistance(50)`).
+- **`:AddTool(name, imageId)`**: Dynamically appends a new tool option to the inventory scroll area, rendering it with the specified Roblox image ID. Returns a `Tool` object.
+- **`:RemoveAllTools()`**: Clears all tools currently displayed in the inventory list.
+
+##### Methods on Returned Tool Object:
+- **`:Remove()`**: Removes this specific tool item from the inventory layout.
 
 ---
 
@@ -141,11 +157,15 @@ Inserts a main tab button in the sidebar layout.
 ```lua
 local MainPage = Window:Page({
     Name = "Main",
-    SubPages = false
+    SubPages = true,
+    SubPagesMode = "Auto"
 })
 ```
 - `Name` (string): Label string on the tab button.
 - `SubPages` (boolean): Set to `true` if you plan to nest subpages inside this tab.
+- `SubPagesMode` (string, optional): Sets the rendering and layout mode for the nested subpages tabs bar:
+  - `"Auto"` (default): The subpages bar dynamically grows to fit its buttons up to the full page width, and automatically scrolls if it overflows.
+  - `"Full"`: The subpages bar is always fully expanded (legacy behavior).
 
 #### `Page:SubPage(data)`
 Nests a sub-tab under a parent page that has `SubPages = true`.
@@ -363,6 +383,7 @@ Modify these boolean parameters on the global `Library` object before initializi
 Library.AllowThemePresets = true   -- Set to false to hide preset theme dropdown menus
 Library.AllowAdvancedTheming = true -- Set to false to hide advanced theme import/export / saving panels
 Library.AllowConfigExport = true    -- Set to false to hide config import/export panels
+Library.AllowUnknownMode = true    -- Set to false to hide the "Unknown Mode" toggle from settings (which lets users hide avatar/username/ID)
 ```
 
 #### Developer Preset Registration & Control
