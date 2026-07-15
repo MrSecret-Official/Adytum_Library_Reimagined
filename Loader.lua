@@ -3004,7 +3004,16 @@ local Library do
             local Slider = {
                 Value = 0,
                 Flag = Data.Flag,
-                Sliding = false
+                Sliding = false,
+                -- [Fix: Slider drag bug] Cached track bounds, captured once
+                -- when the drag starts (see InputBegan below). Needed
+                -- because re-reading AbsolutePosition/AbsoluteSize live on
+                -- every mouse-move breaks for a slider whose own drag can
+                -- resize the window it lives in (UI Scale): the track shifts
+                -- under the cursor mid-drag and the fraction math goes
+                -- haywire. Locking the bounds at drag-start fixes that.
+                DragOrigin = 0,
+                DragWidth = 1
             }
 
             local Items = { } do
@@ -3157,16 +3166,35 @@ local Library do
                 end
             end
 
-            function Slider:Set(Value, Force)
+            -- [Feature: Slider Precision] The fill bar always tweens smoothly
+            -- toward wherever the mouse currently is (RawFraction, optional)
+            -- for the whole drag path — it never teleports. But Value,
+            -- Library.Flags, the text label, and Data.Callback only update
+            -- ("commit") when the rounded value actually reaches a new step,
+            -- not on every in-between mouse position.
+            function Slider:Set(Value, Force, RawFraction)
                 if Slider.Enabled == false and not Force then
                     return
                 end
 
-                Slider.Value = Library:Round(MathClamp(Value, Data.Min, Data.Max), Data.Decimals)
+                local NewValue = Library:Round(MathClamp(Value, Data.Min, Data.Max), Data.Decimals)
+                local Changed = NewValue ~= Slider.Value or Force
 
+                -- Visual fill always follows the raw (unrounded) drag
+                -- position when given one, so it tracks the mouse smoothly
+                -- across the whole travel instead of hopping step to step.
+                -- Falls back to the committed value's own fraction for
+                -- programmatic calls (Default, SetFlags) that pass no drag
+                -- position.
+                local FillFraction = RawFraction or ((NewValue - Data.Min) / (Data.Max - Data.Min))
+                Items["Accent"]:Tween(TweenInfo.new(0.12, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New(FillFraction, 0, 1, 0)})
+
+                if not Changed then
+                    return
+                end
+
+                Slider.Value = NewValue
                 Library.Flags[Slider.Flag] = Slider.Value
-
-                Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Data.Min) / (Data.Max - Data.Min), 0, 1, 0)})
 
                 -- Don't clobber a locked override label (e.g. "Reduce Motion")
                 -- with the raw numeric value while the slider is disabled.
@@ -3177,6 +3205,22 @@ local Library do
                 if Data.Callback then 
                     Library:SafeCall(Data.Callback, Slider.Value)
                 end
+            end
+
+            -- [Fix: Slider drag bug] Reads the track's current bounds. Only
+            -- called once per drag (InputBegan) — see the DragOrigin/
+            -- DragWidth comment above for why it must not be re-read on
+            -- every mouse-move.
+            local function CaptureDragBounds()
+                Slider.DragOrigin = Items["RealSlider"].Instance.AbsolutePosition.X
+                Slider.DragWidth = Items["RealSlider"].Instance.AbsoluteSize.X
+            end
+
+            local function GetMouseFraction()
+                if Slider.DragWidth == 0 then
+                    return 0
+                end
+                return MathClamp((Mouse.X - Slider.DragOrigin) / Slider.DragWidth, 0, 1)
             end
 
             --[[
@@ -3201,11 +3245,12 @@ local Library do
 
                 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                     Slider.Sliding = true 
+                    CaptureDragBounds()
 
-                    local SizeX = (Mouse.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-                    local Value = ((Data.Max - Data.Min) * SizeX) + Data.Min
+                    local Fraction = GetMouseFraction()
+                    local Value = ((Data.Max - Data.Min) * Fraction) + Data.Min
 
-                    Slider:Set(Value)
+                    Slider:Set(Value, false, Fraction)
 
                     if InputChanged then
                         return
@@ -3225,10 +3270,10 @@ local Library do
             Library:Connect(UserInputService.InputChanged, function(Input)
                 if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
                     if Slider.Sliding then
-                        local SizeX = (Mouse.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-                        local Value = ((Data.Max - Data.Min) * SizeX) + Data.Min
+                        local Fraction = GetMouseFraction()
+                        local Value = ((Data.Max - Data.Min) * Fraction) + Data.Min
 
-                        Slider:Set(Value)
+                        Slider:Set(Value, false, Fraction)
                     end
                 end
             end)
