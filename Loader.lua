@@ -161,6 +161,16 @@ local Library do
         -- dropdown in Settings (Small = 1, Medium = 1.2, Large = 1.3).
         NotificationScale = 1,
 
+        -- [Fix: Notification Compression] By default, notification text is
+        -- NOT affected by the global Font Size slider -- only by
+        -- NotificationScale above. This is a dev-only switch with no UI
+        -- exposure: set to false in the loading script to opt notifications
+        -- BACK into the FontScale registry (restoring the old, buggy-but-
+        -- sometimes-wanted behaviour where Font Size also scales
+        -- notifications). Left true, notifications stay stable regardless
+        -- of what the user does with Font Size.
+        NotificationsIgnoreFontScale = true,
+
         -- [Feature: UI Scale] Multiplier applied to the whole window via a
         -- UIScale instance (set on Library.WindowUIScale once the window is
         -- built). Kept in controlled 5% steps by the "UI Scale" slider.
@@ -591,7 +601,7 @@ local Library do
     local Instances = { } do
         Instances.__index = Instances
 
-        Instances.Create = function(self, Class, Properties)
+        Instances.Create = function(self, Class, Properties, SkipFontRegister)
             local NewItem = {
                 Instance = InstanceNew(Class),
                 Properties = Properties,
@@ -608,7 +618,19 @@ local Library do
             -- TextSize self-registers so the global Font Size slider can
             -- rescale it later. Applying the current FontScale immediately
             -- keeps behaviour identical to before when FontScale is 1.
-            if Properties.TextSize and (Class == "TextLabel" or Class == "TextButton" or Class == "TextBox") then
+            --
+            -- [Fix: Notification Compression] Notifications scale their own
+            -- TextSize by NotificationScale at creation time (see
+            -- Library.Notification). If they also self-register here, the
+            -- global Font Size slider re-scales that already-scaled value
+            -- on top of it -- double-applying two independent sliders and
+            -- fighting with the notification's own AutomaticSize/Clips
+            -- behaviour, which is what produced the squished/compressed
+            -- notification frames. Callers that manage their own text
+            -- scaling (like notifications) pass SkipFontRegister = true to
+            -- opt out, keeping Font Size genuinely independent of
+            -- Notification Size as intended.
+            if not SkipFontRegister and Properties.TextSize and (Class == "TextLabel" or Class == "TextButton" or Class == "TextBox") then
                 Library:RegisterFontItem(NewItem.Instance, Properties.TextSize)
             end
 
@@ -892,7 +914,7 @@ local Library do
             -- [Fix: Font Distortion At Large Sizes] Thickness used to be a
             -- flat 1px regardless of TextSize. That looks fine on the small
             -- 9-11px labels most of the UI uses, but on bigger text (e.g.
-            -- Notification Size = "Large", or any larger label) that same
+            -- Notification Size = "Plus", or any larger label) that same
             -- 1px stroke becomes disproportionate to the glyph's own stroke
             -- width and eats into the letterforms, making them look blurry
             -- and deformed. Scaling thickness with TextSize keeps the
@@ -2840,6 +2862,16 @@ local Library do
                     Padding = UDimNew(0, 6),
                     SortOrder = Enum.SortOrder.LayoutOrder
                 })
+
+                -- [Fix: Font Scale Overlap] TextBounds.X was only read once
+                -- at creation (base font size), so SubElements (the colour
+                -- swatch / keybind box) stayed frozen there while FontScale
+                -- kept growing the text, causing an overlap. Re-anchoring on
+                -- every TextBounds change keeps it glued to the end of the
+                -- text regardless of font size or text content.
+                Items["Text"].Instance:GetPropertyChangedSignal("TextBounds"):Connect(function()
+                    Items["SubElements"].Instance.Position = UDim2New(0, Items["Text"].Instance.TextBounds.X + 30, 0, 0)
+                end)
             end
             
             function Toggle:Get()
@@ -3420,6 +3452,14 @@ local Library do
                     Padding = UDimNew(0, 6),
                     SortOrder = Enum.SortOrder.LayoutOrder
                 })
+
+                -- [Fix: Font Scale Overlap] Same fix as Components.Toggle --
+                -- re-anchor SubElements on every TextBounds change instead
+                -- of a one-time snapshot, so it never overlaps the label
+                -- text after a FontScale change or a Label:SetText call.
+                Items["Text"].Instance:GetPropertyChangedSignal("TextBounds"):Connect(function()
+                    Items["SubElements"].Instance.Position = UDim2New(0, Items["Text"].Instance.TextBounds.X + 8, 0, 0)
+                end)
             end
 
             function Label:SetText(Text)
@@ -6332,6 +6372,7 @@ end)
                 BorderColor3 = FromRGB(12, 12, 12),
                 BorderSizePixel = 2,
                 AutomaticSize = Enum.AutomaticSize.XY,
+                ClipsDescendants = true,
                 BackgroundColor3 = FromRGB(14, 17, 15)
             })  Items["Notification"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
 
@@ -6363,9 +6404,14 @@ end)
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.XY,
-                TextSize = Library:Round(9 * Scale),
+                TextWrapped = true,
+                TextSize = Scale > 1 and 11 or 9,
                 BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
+            }, Library.NotificationsIgnoreFontScale)  Items["Title"]:AddToTheme({TextColor3 = "Text"})
+            -- [Fix: Notification Compression] SkipFontRegister above follows
+            -- Library.NotificationsIgnoreFontScale (dev-only, hidden) -- true
+            -- by default, so this label's size is driven solely by
+            -- NotificationScale, not the global Font Size slider.
 
            Items["UIStroke2"] =  Items["Title"]:TextBorder()
 
@@ -6376,30 +6422,71 @@ end)
                 TextColor3 = FromRGB(235, 235, 235),
                 TextTransparency = 0.4000000059604645,
                 Text = Description,
-                Position = UDim2New(0, 0, 0, Library:Round(15 * Scale)),
                 BorderSizePixel = 0,
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderColor3 = FromRGB(0, 0, 0),
                 AutomaticSize = Enum.AutomaticSize.XY,
-                TextSize = Library:Round(9 * Scale),
+                TextWrapped = true,
+                TextSize = Scale > 1 and 11 or 9,
                 BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Description"]:AddToTheme({TextColor3 = "Text"})
+            }, Library.NotificationsIgnoreFontScale)  Items["Description"]:AddToTheme({TextColor3 = "Text"})
+            -- [Fix: Notification Compression] Same as Title -- follows
+            -- Library.NotificationsIgnoreFontScale (dev-only, hidden).
 
             Items["UIStroke3"] = Items["Description"]:TextBorder()
 
-            Items["Liner"] = Instances:Create("Frame", {
+            Instances:Create("UISizeConstraint", {
                 Parent = Items["Notification"].Instance,
                 Name = "\0",
-                Position = UDim2New(0, 0, 1, Library:Round(8 * Scale)),
+                MaxSize = Vector2.new(Library:Round(320 * Scale), math.huge),
+                MinSize = Vector2.new(Library:Round(200 * Scale), 0)
+            })
+
+            -- [Fix: Notification UI Squashed Bug] Using manual Y positioning with Scale
+            -- on Liner (Position = {0,0,1,8}) while Notification has AutomaticSize.XY
+            -- creates a circular dependency in Roblox's layout engine, causing the frame
+            -- to collapse/squash to 0 height. Using a UIListLayout ensures all elements 
+            -- stack correctly and the AutomaticSize calculates synchronously.
+            Instances:Create("UIListLayout", {
+                Parent = Items["Notification"].Instance,
+                Name = "\0",
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding = UDimNew(0, Library:Round(6 * Scale))
+            })
+
+            Items["Title"].Instance.LayoutOrder = 1
+            Items["Description"].Instance.LayoutOrder = 2
+
+            local LinerContainer = Instances:Create("Frame", {
+                Parent = Items["Notification"].Instance,
+                Name = "\0",
+                BackgroundTransparency = 1,
+                Size = UDim2New(0, 0, 0, 1),
+                BorderSizePixel = 0,
+                LayoutOrder = 3
+            })
+
+            Items["Liner"] = Instances:Create("Frame", {
+                Parent = LinerContainer.Instance,
+                Name = "\0",
                 BorderColor3 = FromRGB(0, 0, 0),
                 Size = UDim2New(1, 0, 0, 1),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(202, 243, 255)
             })  Items["Liner"]:AddToTheme({BackgroundColor3 = "Accent"})
-        end
 
-        local Size = Items["Notification"].Instance.AbsoluteSize
+            -- Sync LinerContainer width to the text size dynamically to avoid 
+            -- Scale=1 infinite expansion bugs with nested AutomaticSize
+            local function UpdateLinerWidth()
+                local titleWidth = Items["Title"].Instance.AbsoluteSize.X
+                local descWidth = Items["Description"].Instance.AbsoluteSize.X
+                LinerContainer.Instance.Size = UDim2New(0, math.max(titleWidth, descWidth), 0, 1)
+            end
+            UpdateLinerWidth()
+            Items["Title"].Instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateLinerWidth)
+            Items["Description"].Instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateLinerWidth)
+        end
 
         for Index, Value in Items do 
             if Value.Instance:IsA("Frame") then
@@ -6411,7 +6498,18 @@ end)
             end
         end 
 
-        Items["Notification"].Instance.AutomaticSize = Enum.AutomaticSize.Y
+        -- [Fix: Notification Font Size Clipping] This used to switch
+        -- AutomaticSize to Y-only right here, permanently locking the
+        -- frame's width at whatever it happened to be at creation. But
+        -- Title/Description stay registered in Library.FontItems for their
+        -- whole lifetime, so adjusting the Font Size (or Notification Size)
+        -- slider *while a notification is on screen* keeps growing their
+        -- TextSize live -- with X-autosizing disabled, that growing text
+        -- had nowhere to go but past the frame's edge, and
+        -- ClipsDescendants sliced it off. Leaving AutomaticSize on XY for
+        -- the whole visible lifetime keeps the box reactive to those live
+        -- rescales; we only drop to a fixed Size right before the closing
+        -- tween below, which needs to animate Size manually.
 
         Library:Thread(function()
             for Index, Value in Items do 
@@ -6426,10 +6524,17 @@ end)
                 end
             end
 
-            Items["Notification"]:Tween(nil, {Size = UDim2New(0, Size.X, 0, 0)})
             Items["Liner"]:Tween(TweenInfo.new(Duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New(0, 0, 0, 1)})
             
             task.delay(Duration + 0.1, function()
+                -- Freeze the frame at its current (possibly live-rescaled)
+                -- size only now, right as the closing animation takes over --
+                -- AutomaticSize and a manual Size tween can't drive the same
+                -- axis at once, so this is the latest point we can capture it.
+                local ClosingSize = Items["Notification"].Instance.AbsoluteSize
+                Items["Notification"].Instance.Size = UDim2New(0, ClosingSize.X, 0, ClosingSize.Y)
+                Items["Notification"].Instance.AutomaticSize = Enum.AutomaticSize.None
+
                 for Index, Value in Items do 
                     if Value.Instance:IsA("Frame") then
                         Value:Tween(nil, {BackgroundTransparency = 1})
@@ -8685,16 +8790,16 @@ end)
 			            TableInsert(PersistedFlags, "TitlePosition")
 			        end
 
-			        -- [Feature: Notification Size] Small keeps the original
-			        -- size, Medium/Large scale text+padding+spacing up.
+			        -- [Feature: Notification Size] Standard keeps the original
+			        -- size, Plus scales text+padding+spacing up slightly.
 			        do
-			            local SizeMap = {Small = 1, Medium = 1.2, Large = 1.3}
-			            local ScaleToName = {[1] = "Small", [1.2] = "Medium", [1.3] = "Large"}
+			            local SizeMap = {Standard = 1, Plus = 1.15}
+			            local ScaleToName = {[1] = "Standard", [1.15] = "Plus"}
 			            AccessibilitySection:Dropdown({
 			                Name = "Notification Size",
 			                Flag = "NotificationSize",
-			                Items = {"Small", "Medium", "Large"},
-			                Default = ScaleToName[Library.NotificationScale] or "Small",
+			                Items = {"Standard", "Plus"},
+			                Default = ScaleToName[Library.NotificationScale] or "Standard",
 			                Callback = function(Value)
 			                    Library.NotificationScale = SizeMap[Value] or 1
 			                    SaveLibrarySettings()
